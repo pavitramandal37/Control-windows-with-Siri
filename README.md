@@ -1,4 +1,4 @@
-# Siri Laptop Automation
+# Siri 🔀 Windows Automation
 ## Complete Setup Guide
 **Control Your Windows Laptop with Voice Commands**
 
