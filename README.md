@@ -84,8 +84,8 @@ Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0
 After restarting, **open PowerShell as Administrator** again.
 
 **Create a dedicated SSH user** (recommended for security):
-Username: `sshuser` (you can keep your own username)
-Password: `YourPassword123` (you can choose your own password)
+- Username: `sshuser` (you can keep your own username)
+- Password: `YourPassword123` (you can choose your own password)
 
 ```powershell
 net user sshuser YourPassword123 /add
