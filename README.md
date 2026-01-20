@@ -17,6 +17,7 @@
 - [Part 3: Creating Siri Shortcuts](#part-3-creating-siri-shortcuts)
 - [Part 4: Additional Useful Shortcuts](#part-4-additional-useful-shortcuts)
 - [Troubleshooting](#troubleshooting)
+- [Managing SSH User Passwords](#managing-ssh-user-passwords)
 - [Security Considerations](#security-considerations)
 - [Frequently Asked Questions](#frequently-asked-questions)
 - [Conclusion](#conclusion)
@@ -119,18 +120,19 @@ notepad C:\ProgramData\ssh\sshd_config
 A blank Notepad window will open. **Copy and paste this configuration:**
 
 ```
-# SSH Server Configuration
 Port 22
 PasswordAuthentication yes
 PubkeyAuthentication yes
 PermitRootLogin no
 AllowUsers sshuser
-
-# Subsystem for file transfer
 Subsystem sftp sftp-server.exe
 ```
 
+> **Warning:** Make sure there are no leading spaces before any line. Each line should start at the beginning without spaces.
+
 **✓ Save the file:** Press `Ctrl+S`, make sure "Save as type" is set to **"All Files (*.*)"**, then click Save. Close Notepad.
+
+> **Note:** If you're using VS Code or WSL on the same machine, be careful not to accidentally overwrite this file. Check that only `sshd_config` exists (not `sshd_config.txt`).
 
 ---
 
@@ -353,11 +355,121 @@ Once you have the basic shortcuts working, you can create many more! Here are so
 
 ---
 
-### "Permission Denied" Error
+### "Permission Denied" or "Authentication Failed" Error
 
-- **Wrong password:** Double-check you're using the correct password
-- **Wrong username:** Verify you're using `sshuser` not your personal account
-- **SSH config issue:** Re-run Step 3 to recreate the config file
+This is the most common issue. Follow these steps to diagnose and fix:
+
+#### Step 1: Check SSH Logs First
+
+Open **PowerShell as Administrator** and run:
+
+```powershell
+Get-WinEvent -LogName OpenSSH/Operational -MaxEvents 10 | Format-List Message
+```
+
+This will show you the **exact reason** for the failure. Look for messages like:
+- `User sshuser not allowed because not listed in AllowUsers` → Config issue
+- `Failed password for sshuser` → Wrong password
+- `invalid user sshuser` → User doesn't exist or not allowed
+
+---
+
+#### Step 2: Verify the SSH Config File
+
+**Check if the correct config file exists:**
+
+```powershell
+type C:\ProgramData\ssh\sshd_config
+```
+
+**Common config file problems:**
+
+| Problem | Symptom | Solution |
+|---------|---------|----------|
+| Wrong file content | Config shows random text, Python output, or garbage | Delete and recreate the file (see below) |
+| File saved as `.txt` | You have `sshd_config.txt` instead of `sshd_config` | Rename: `Rename-Item "C:\ProgramData\ssh\sshd_config.txt" "sshd_config"` |
+| Wrong `AllowUsers` | Config says `AllowUsers differentuser` | Change to `AllowUsers sshuser` |
+| Leading spaces | Lines have spaces before them | Remove all leading spaces |
+
+**To recreate the config file:**
+
+```powershell
+Remove-Item C:\ProgramData\ssh\sshd_config -Force -ErrorAction SilentlyContinue
+notepad C:\ProgramData\ssh\sshd_config
+```
+
+Paste this exact content (no leading spaces):
+
+```
+Port 22
+PasswordAuthentication yes
+PubkeyAuthentication yes
+PermitRootLogin no
+AllowUsers sshuser
+Subsystem sftp sftp-server.exe
+```
+
+Save with `Ctrl+S`, ensuring "Save as type" is **"All Files (*.*)"**.
+
+**Set permissions and restart:**
+
+```powershell
+icacls C:\ProgramData\ssh\sshd_config /inheritance:r
+icacls C:\ProgramData\ssh\sshd_config /grant "BUILTIN\Administrators:F"
+icacls C:\ProgramData\ssh\sshd_config /grant "NT AUTHORITY\SYSTEM:F"
+Restart-Service sshd
+```
+
+---
+
+#### Step 3: Verify the User Account
+
+**Check if the user exists:**
+
+```powershell
+net user sshuser
+```
+
+If "The user name could not be found", create the user:
+
+```powershell
+net user sshuser YourPassword123 /add
+net localgroup "Administrators" sshuser /add
+net localgroup "Remote Management Users" sshuser /add
+```
+
+**Check account status** - Look for:
+- `Account active: Yes` (if No, run: `net user sshuser /active:yes`)
+- `Password expires:` (if expired, reset password)
+
+---
+
+#### Step 4: Reset the Password
+
+If you're unsure about the password, reset it:
+
+```powershell
+net user sshuser NewPassword123
+```
+
+**Password tips:**
+- Use only letters and numbers initially (avoid `!@#$%^&*` until it works)
+- Make sure Caps Lock is off when typing
+- Type the password manually instead of copy-pasting
+
+---
+
+#### Step 5: Restart SSH and Test
+
+```powershell
+Restart-Service sshd
+```
+
+Test in a **regular PowerShell** (not Admin):
+
+```powershell
+ssh sshuser@localhost
+```
 
 ---
 
@@ -382,6 +494,52 @@ Restart-Service sshd
 **Use IP address instead:**
 - Find your laptop's IP with `ipconfig | findstr IPv4`
 - **Update Termius and shortcuts:** Replace `hostname.local` with the IP address (e.g., `192.168.1.100`)
+
+---
+
+## Managing SSH User Passwords
+
+### Who Can Change the Password?
+
+| User Type | Can Change sshuser Password? | Method |
+|-----------|------------------------------|--------|
+| Administrator account | Yes | PowerShell or Settings |
+| The sshuser account itself | Yes | After logging in |
+| Standard (non-admin) user | No | Needs admin rights |
+
+### How to Change the Password
+
+#### Method 1: PowerShell (Recommended)
+
+Open **PowerShell as Administrator**:
+
+```powershell
+net user sshuser NewPassword123
+```
+
+#### Method 2: Windows Settings
+
+1. Press `Windows + I` to open Settings
+2. Go to **Accounts** → **Other users**
+3. Click on **sshuser**
+4. Click **Change password**
+5. Enter new password and confirm
+
+#### Method 3: Computer Management
+
+1. Press `Windows + X` → Select **Computer Management**
+2. Navigate to **Local Users and Groups** → **Users**
+3. Right-click **sshuser** → **Set Password**
+4. Enter new password
+
+### After Changing the Password
+
+**Important:** Update your Siri shortcuts with the new password!
+
+1. Open **Shortcuts** app on iPhone
+2. Edit each SSH shortcut (Shut Down Laptop, Hibernate Laptop, etc.)
+3. Update the **Password** field with the new password
+4. Save the shortcut
 
 ---
 
