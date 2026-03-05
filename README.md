@@ -16,6 +16,7 @@
 - [Part 2: iPhone Setup with Termius](#part-2-iphone-setup-with-termius)
 - [Part 3: Creating Siri Shortcuts](#part-3-creating-siri-shortcuts)
 - [Part 4: Additional Useful Shortcuts](#part-4-additional-useful-shortcuts)
+- [⚡ Quick Fix: SSH Authentication Issue](#-quick-fix-ssh-authentication-issue)
 - [Troubleshooting](#troubleshooting)
 - [Managing SSH User Passwords](#managing-ssh-user-passwords)
 - [Security Considerations](#security-considerations)
@@ -339,6 +340,96 @@ Once you have the basic shortcuts working, you can create many more! Here are so
 - **Command:** `WMIC Path Win32_Battery Get EstimatedChargeRemaining`
 - **Say:** "Hey Siri, check laptop battery"
 - **Use case:** Know when to charge your laptop remotely
+
+---
+
+## ⚡ Quick Fix: SSH Authentication Issue
+
+> **Most Common Problem:** SSH config file gets corrupted or overwritten (especially when working on other projects with WSL/VS Code). Use the steps below to restore it instantly.
+
+### The Correct `sshd_config` Content
+
+Copy this and paste it directly into `C:\ProgramData\ssh\sshd_config` — this is the working configuration:
+
+```
+Port 22
+PasswordAuthentication yes
+PubkeyAuthentication yes
+PermitRootLogin no
+AllowUsers sshuser
+Subsystem sftp sftp-server.exe
+```
+
+---
+
+### One-Command Fix (Recommended)
+
+Open **PowerShell as Administrator** and run this single command to overwrite the SSH config file with the correct content:
+
+```powershell
+@'
+Port 22
+PasswordAuthentication yes
+PubkeyAuthentication yes
+PermitRootLogin no
+AllowUsers sshuser
+Subsystem sftp sftp-server.exe
+'@ | Set-Content -Path "C:\ProgramData\ssh\sshd_config" -Encoding UTF8 -NoNewline
+```
+
+Then set the correct permissions and restart SSH:
+
+```powershell
+icacls C:\ProgramData\ssh\sshd_config /inheritance:r
+icacls C:\ProgramData\ssh\sshd_config /grant "BUILTIN\Administrators:F"
+icacls C:\ProgramData\ssh\sshd_config /grant "NT AUTHORITY\SYSTEM:F"
+Restart-Service sshd
+```
+
+---
+
+### Step-by-Step Fix
+
+**Step 1: Restore the SSH Config File**
+
+Run this in PowerShell (Admin) to copy the correct config content into the file:
+
+```powershell
+@'
+Port 22
+PasswordAuthentication yes
+PubkeyAuthentication yes
+PermitRootLogin no
+AllowUsers sshuser
+Subsystem sftp sftp-server.exe
+'@ | Set-Content -Path "C:\ProgramData\ssh\sshd_config" -Encoding UTF8 -NoNewline
+```
+
+**Step 2: Reset the SSH User Password**
+
+```powershell
+net user sshuser YourPassword123
+```
+
+> Replace `YourPassword123` with a password of your choice. Use only letters and numbers (avoid special characters like `!@#$` until confirmed working).
+
+**Step 3: Restart SSH Service**
+
+```powershell
+Restart-Service sshd
+```
+
+**Step 4: Test the Connection Locally**
+
+Open a **new regular PowerShell window** (NOT as Administrator) and run:
+
+```bash
+ssh sshuser@localhost
+```
+
+- Enter the password you set in Step 2
+- If you see a prompt like `sshuser@DESKTOP-XXXXXX C:\Users\sshuser>` → ✅ **Issue is fixed!**
+- Update the password in your Siri Shortcuts and Termius app
 
 ---
 
